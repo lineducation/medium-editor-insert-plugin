@@ -451,7 +451,6 @@
                 $place.remove();
             }
 
-
             this.core.triggerInput();
 
             if (html.indexOf('facebook') !== -1) {
