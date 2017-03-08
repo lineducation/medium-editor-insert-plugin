@@ -417,7 +417,7 @@ describe('Embeds addon', function () {
     });
 
     it('uses data-embed-code as container html for javascript-based embeds', function () {
-        var html = '<div class="medium-insert-embeds"><figure class="medium-insert-embed"><div data-embed-code="<div>good-value</div>">bad-value</div></figure></div>',
+        var html = '<div class="medium-insert-embeds"><figure class="medium-insert-embed"><div data-embed-code="&amp;lt;blockquote&amp;gt;good-value&amp;lt;/blockquote&amp;gt;">bad-value</div></figure></div>',
             editor, $serialized;
 
         $('#fixtures').html('<div class="editable">' + html + '</div>');
@@ -433,7 +433,73 @@ describe('Embeds addon', function () {
         });
 
         $serialized = $(editor.serialize()['element-0'].value);
-        expect($serialized.find('[data-embed-code]').html()).toEqual('<div>good-value</div>');
+        expect($serialized.find('[data-embed-code]').html()).toEqual('<blockquote>good-value</blockquote>');
+    });
+
+    it('does include meta when storeMeta is set', function () {
+        var $event = $.Event('keydown');
+
+        $event.which = 13;
+        $('#fixtures').html('<div class="editable"><p class="medium-insert-embeds-input medium-insert-embeds-active">https://www.facebook.com/cneistat/videos/vb.210351389002863/922328184471843/?type=2&theater</p></div>');
+        this.$el = $('.editable');
+        this.$el.mediumInsert({
+            addons: {
+                embeds: {
+                    oembedProxy: false,
+                    storeMeta: true
+                }
+            }
+        });
+        this.$el.trigger($event);
+
+        expect(this.$el.find('.medium-insert-embeds').length).toEqual(1);
+        expect(this.$el.find('.medium-insert-embeds .fb-post').length).toEqual(1);
+        expect(this.$el.find('.medium-insert-embeds-meta').length).toEqual(1);
+        expect(this.$el.find('.medium-insert-embeds-input').length).toEqual(0);
+    });
+
+    it('does not include meta when storeMeta is not set', function () {
+        var $event = $.Event('keydown');
+
+        $event.which = 13;
+        $('#fixtures').html('<div class="editable"><p class="medium-insert-embeds-input medium-insert-embeds-active">https://www.facebook.com/cneistat/videos/vb.210351389002863/922328184471843/?type=2&theater</p></div>');
+        this.$el = $('.editable');
+        this.$el.mediumInsert({
+            addons: {
+                embeds: {
+                    oembedProxy: false,
+                    storeMeta: false
+                }
+            }
+        });
+        this.$el.trigger($event);
+
+        expect(this.$el.find('.medium-insert-embeds').length).toEqual(1);
+        expect(this.$el.find('.medium-insert-embeds .fb-post').length).toEqual(1);
+        expect(this.$el.find('.medium-insert-embeds-meta').length).toEqual(0);
+        expect(this.$el.find('.medium-insert-embeds-input').length).toEqual(0);
+    });
+
+    it('does not include meta for bad embeds', function () {
+        var $event = $.Event('keydown');
+
+        $event.which = 13;
+        $('#fixtures').html('<div class="editable"><p class="medium-insert-embeds-input medium-insert-embeds-active">test</p></div>');
+        this.$el = $('.editable');
+
+        this.$el.mediumInsert({
+            addons: {
+                embeds: {
+                    oembedProxy: false,
+                    storeMeta: true
+                }
+            }
+        });
+        this.$el.trigger($event);
+
+        expect(this.$el.find('.medium-insert-embeds-input').length).toEqual(0);
+        expect(this.$el.find('.medium-insert-embeds-meta').length).toEqual(0);
+        expect(this.$el.find('p:first').html()).toBe('test');
     });
 
     it('does include meta when storeMeta is set', function () {

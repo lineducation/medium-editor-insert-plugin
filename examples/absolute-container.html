@@ -27,6 +27,19 @@
                 width: 25%;
             }
         }
+
+        html, body {
+            height: 100%;
+        }
+
+        #container {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            height: 100%;
+            margin-left: -480px;
+            overflow: scroll;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +47,7 @@
 
     <div id="container">
         <div class="editable" data-placeholder="Type some text">
-            <h2>jQuery insert plugin for MediumEditor</h2>
+            <h2>jQuery insert plugin for MediumEditor<br />inside absolute container</h2>
 
             <p>My father’s family name being Pirrip, and my Christian name Philip, my infant tongue could make of both names nothing longer or more explicit than Pip. So, I called myself Pip, and came to be called Pip.</p>
 
@@ -71,18 +84,13 @@
     <script src="../src/js/images.js"></script>
 
     <script>
-        var editor = new MediumEditor('.editable');
+        var editor = new MediumEditor('.editable', {
+            elementsContainer: $('#container').get(0)
+        });
 
         $(function () {
             $('.editable').mediumInsert({
-                editor: editor,
-                addons: {
-                    images: {
-                        fileUploadOptions: {
-                            url: 'upload.php'
-                        }
-                    }
-                }
+                editor: editor
             });
         });
     </script>

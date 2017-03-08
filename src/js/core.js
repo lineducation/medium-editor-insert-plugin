@@ -143,11 +143,13 @@
             var $data = $('<div />').html(data[key].value);
 
             $data.find('.medium-insert-buttons').remove();
+            $data.find('.medium-insert-active').removeClass('medium-insert-active');
 
             // Restore original embed code from embed wrapper attribute value.
             $data.find('[data-embed-code]').each(function () {
-                var $this = $(this);
-                $this.html($this.attr('data-embed-code'));
+                var $this = $(this),
+                    html = $('<div />').html($this.attr('data-embed-code')).text();
+                $this.html(html);
             });
 
             data[key].value = $data.html();
@@ -414,6 +416,12 @@
             if ($p.length && (($p.text().trim() === '' && !activeAddon) || activeAddon === 'images')) {
                 $p.addClass('medium-insert-active');
 
+                if (activeAddon === 'images') {
+                    this.$el.find('.medium-insert-buttons').attr('data-active-addon', activeAddon);
+                } else {
+                    this.$el.find('.medium-insert-buttons').removeAttr('data-active-addon');
+                }
+
                 // If buttons are displayed on addon paragraph, wait 100ms for possible captions to display
                 setTimeout(function () {
                     that.positionButtons(activeAddon);
@@ -440,7 +448,7 @@
 
         if (activeAddon) {
             $buttons.find('li').hide();
-            $buttons.find('a[data-addon="' + activeAddon + '"]').parent().show();
+            $buttons.find('button[data-addon="' + activeAddon + '"]').parent().show();
         }
     };
 
@@ -469,27 +477,32 @@
     Core.prototype.positionButtons = function (activeAddon) {
         var $buttons = this.$el.find('.medium-insert-buttons'),
             $p = this.$el.find('.medium-insert-active'),
-            $first = $p.find('figure:first').length ? $p.find('figure:first') : $p,
-            left, top;
+            $lastCaption = $p.hasClass('medium-insert-images-grid') ? [] : $p.find('figure:last figcaption'),
+            elementsContainer = this.getEditor() ? this.getEditor().options.elementsContainer : $('body').get(0),
+            elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+            position = {};
 
         if ($p.length) {
-
-            left = $p.position().left - parseInt($buttons.find('.medium-insert-buttons-addons').css('left'), 10) - parseInt($buttons.find('.medium-insert-buttons-addons a:first').css('margin-left'), 10);
-            left = left < 0 ? $p.position().left : left;
-            top = $p.position().top + parseInt($p.css('margin-top'), 10);
+            position.left = $p.position().left;
+            position.top = $p.position().top;
 
             if (activeAddon) {
-                if ($p.position().left !== $first.position().left) {
-                    left = $first.position().left;
-                }
-
-                top += $p.height() + 15; // 15px offset
+                position.left += $p.width() - $buttons.find('.medium-insert-buttons-show').width() - 10;
+                position.top += $p.height() - 20 + ($lastCaption.length ? -$lastCaption.height() - parseInt($lastCaption.css('margin-top'), 10) : 10);
+            } else {
+                position.left += -parseInt($buttons.find('.medium-insert-buttons-addons').css('left'), 10) - parseInt($buttons.find('.medium-insert-buttons-addons button:first').css('margin-left'), 10);
+                position.top += parseInt($p.css('margin-top'), 10);
             }
 
-            $buttons.css({
-                left: left,
-                top: top
-            });
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop;
+            }
+
+            if (this.$el.hasClass('medium-editor-placeholder') === false && position.left < 0) {
+                position.left = $p.position().left;
+            }
+
+            $buttons.css(position);
         }
     };
 
@@ -500,6 +513,11 @@
      */
 
     Core.prototype.toggleAddons = function () {
+        if (this.$el.find('.medium-insert-buttons').attr('data-active-addon') === 'images') {
+            this.$el.find('.medium-insert-buttons').find('button[data-addon="images"]').click();
+            return;
+        }
+
         this.$el.find('.medium-insert-buttons-addons').fadeToggle();
         this.$el.find('.medium-insert-buttons-show').toggleClass('medium-insert-buttons-rotate');
     };
@@ -523,7 +541,7 @@
      */
 
     Core.prototype.addonAction = function (e) {
-        var $a = $(e.target).is('a') ? $(e.target) : $(e.target).closest('a'),
+        var $a = $(e.currentTarget),
             addon = $a.data('addon'),
             action = $a.data('action');
 

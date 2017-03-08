@@ -1,5 +1,5 @@
 /*! 
- * medium-editor-insert-plugin v2.3.4 - jQuery insert plugin for MediumEditor
+ * medium-editor-insert-plugin v2.4.0 - jQuery insert plugin for MediumEditor
  *
  * http://linkesch.com/medium-editor-insert-plugin
  * 
@@ -40,15 +40,15 @@ this["MediumInsert"]["Templates"] = this["MediumInsert"]["Templates"] || {};
 this["MediumInsert"]["Templates"]["src/js/templates/core-buttons.hbs"] = Handlebars.template({"1":function(container,depth0,helpers,partials,data) {
     var stack1, helper, alias1=depth0 != null ? depth0 : {}, alias2=helpers.helperMissing, alias3="function";
 
-  return "            <li><a data-addon=\""
+  return "            <li><button data-addon=\""
     + container.escapeExpression(((helper = (helper = helpers.key || (data && data.key)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"key","hash":{},"data":data}) : helper)))
-    + "\" data-action=\"add\" class=\"medium-insert-action\">"
+    + "\" data-action=\"add\" class=\"medium-insert-action\" type=\"button\">"
     + ((stack1 = ((helper = (helper = helpers.label || (depth0 != null ? depth0.label : depth0)) != null ? helper : alias2),(typeof helper === alias3 ? helper.call(alias1,{"name":"label","hash":{},"data":data}) : helper))) != null ? stack1 : "")
-    + "</a></li>\n";
+    + "</button></li>\n";
 },"compiler":[7,">= 4.0.0"],"main":function(container,depth0,helpers,partials,data) {
     var stack1;
 
-  return "<div class=\"medium-insert-buttons\" contenteditable=\"false\" style=\"display: none\">\n    <a class=\"medium-insert-buttons-show\">+</a>\n    <ul class=\"medium-insert-buttons-addons\" style=\"display: none\">\n"
+  return "<div class=\"medium-insert-buttons\" contenteditable=\"false\" style=\"display: none\">\n    <button class=\"medium-insert-buttons-show\" type=\"button\"><span>+</span></button>\n    <ul class=\"medium-insert-buttons-addons\" style=\"display: none\">\n"
     + ((stack1 = helpers.each.call(depth0 != null ? depth0 : {},(depth0 != null ? depth0.addons : depth0),{"name":"each","hash":{},"fn":container.program(1, data, 0),"inverse":container.noop,"data":data})) != null ? stack1 : "")
     + "    </ul>\n</div>\n";
 },"useData":true});
@@ -308,11 +308,13 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             var $data = $('<div />').html(data[key].value);
 
             $data.find('.medium-insert-buttons').remove();
+            $data.find('.medium-insert-active').removeClass('medium-insert-active');
 
             // Restore original embed code from embed wrapper attribute value.
             $data.find('[data-embed-code]').each(function () {
-                var $this = $(this);
-                $this.html($this.attr('data-embed-code'));
+                var $this = $(this),
+                    html = $('<div />').html($this.attr('data-embed-code')).text();
+                $this.html(html);
             });
 
             data[key].value = $data.html();
@@ -579,6 +581,12 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             if ($p.length && (($p.text().trim() === '' && !activeAddon) || activeAddon === 'images')) {
                 $p.addClass('medium-insert-active');
 
+                if (activeAddon === 'images') {
+                    this.$el.find('.medium-insert-buttons').attr('data-active-addon', activeAddon);
+                } else {
+                    this.$el.find('.medium-insert-buttons').removeAttr('data-active-addon');
+                }
+
                 // If buttons are displayed on addon paragraph, wait 100ms for possible captions to display
                 setTimeout(function () {
                     that.positionButtons(activeAddon);
@@ -605,7 +613,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
 
         if (activeAddon) {
             $buttons.find('li').hide();
-            $buttons.find('a[data-addon="' + activeAddon + '"]').parent().show();
+            $buttons.find('button[data-addon="' + activeAddon + '"]').parent().show();
         }
     };
 
@@ -634,27 +642,32 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
     Core.prototype.positionButtons = function (activeAddon) {
         var $buttons = this.$el.find('.medium-insert-buttons'),
             $p = this.$el.find('.medium-insert-active'),
-            $first = $p.find('figure:first').length ? $p.find('figure:first') : $p,
-            left, top;
+            $lastCaption = $p.hasClass('medium-insert-images-grid') ? [] : $p.find('figure:last figcaption'),
+            elementsContainer = this.getEditor() ? this.getEditor().options.elementsContainer : $('body').get(0),
+            elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+            position = {};
 
         if ($p.length) {
-
-            left = $p.position().left - parseInt($buttons.find('.medium-insert-buttons-addons').css('left'), 10) - parseInt($buttons.find('.medium-insert-buttons-addons a:first').css('margin-left'), 10);
-            left = left < 0 ? $p.position().left : left;
-            top = $p.position().top + parseInt($p.css('margin-top'), 10);
+            position.left = $p.position().left;
+            position.top = $p.position().top;
 
             if (activeAddon) {
-                if ($p.position().left !== $first.position().left) {
-                    left = $first.position().left;
-                }
-
-                top += $p.height() + 15; // 15px offset
+                position.left += $p.width() - $buttons.find('.medium-insert-buttons-show').width() - 10;
+                position.top += $p.height() - 20 + ($lastCaption.length ? -$lastCaption.height() - parseInt($lastCaption.css('margin-top'), 10) : 10);
+            } else {
+                position.left += -parseInt($buttons.find('.medium-insert-buttons-addons').css('left'), 10) - parseInt($buttons.find('.medium-insert-buttons-addons button:first').css('margin-left'), 10);
+                position.top += parseInt($p.css('margin-top'), 10);
             }
 
-            $buttons.css({
-                left: left,
-                top: top
-            });
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop;
+            }
+
+            if (this.$el.hasClass('medium-editor-placeholder') === false && position.left < 0) {
+                position.left = $p.position().left;
+            }
+
+            $buttons.css(position);
         }
     };
 
@@ -665,6 +678,11 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
      */
 
     Core.prototype.toggleAddons = function () {
+        if (this.$el.find('.medium-insert-buttons').attr('data-active-addon') === 'images') {
+            this.$el.find('.medium-insert-buttons').find('button[data-addon="images"]').click();
+            return;
+        }
+
         this.$el.find('.medium-insert-buttons-addons').fadeToggle();
         this.$el.find('.medium-insert-buttons-show').toggleClass('medium-insert-buttons-rotate');
     };
@@ -688,7 +706,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
      */
 
     Core.prototype.addonAction = function (e) {
-        var $a = $(e.target).is('a') ? $(e.target) : $(e.target).closest('a'),
+        var $a = $(e.currentTarget),
             addon = $a.data('addon'),
             action = $a.data('action');
 
@@ -923,6 +941,9 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             this.$el
                 .on('paste', $.proxy(this, 'processPasted'));
         }
+
+        $(window)
+            .on('resize', $.proxy(this, 'autoRepositionToolbars'));
     };
 
     /**
@@ -1232,7 +1253,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
                 // Store embed code with <script> tag inside wrapper attribute value.
                 // Make nice attribute value escaping using jQuery.
                 $div = $('<div>')
-                    .attr('data-embed-code', html)
+                    .attr('data-embed-code', $('<div />').text(html).html())
                     .html(html);
                 html = $('<div>').append($div).html();
             }
@@ -1396,7 +1417,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
     Embeds.prototype.addToolbar = function () {
         var $embed = this.$el.find('.medium-insert-embeds-selected'),
             active = false,
-            $toolbar, $toolbar2, top, mediumEditor, toolbarContainer;
+            $toolbar, $toolbar2, mediumEditor, toolbarContainer;
 
         if ($embed.length === 0) {
             return;
@@ -1413,25 +1434,6 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
         $toolbar = $('.medium-insert-embeds-toolbar');
         $toolbar2 = $('.medium-insert-embeds-toolbar2');
 
-        top = $embed.offset().top - $toolbar.height() - 8 - 2 - 5; // 8px - hight of an arrow under toolbar, 2px - height of an embed outset, 5px - distance from an embed
-        if (top < 0) {
-            top = 0;
-        }
-
-        $toolbar
-            .css({
-                top: top,
-                left: $embed.offset().left + $embed.width() / 2 - $toolbar.width() / 2
-            })
-            .show();
-
-        $toolbar2
-            .css({
-                top: $embed.offset().top + 2, // 2px - distance from a border
-                left: $embed.offset().left + $embed.width() - $toolbar2.width() - 4 // 4px - distance from a border
-            })
-            .show();
-
         $toolbar.find('button').each(function () {
             if ($embed.hasClass('medium-insert-embeds-' + $(this).data('action'))) {
                 $(this).addClass('medium-editor-button-active');
@@ -1441,6 +1443,61 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
 
         if (active === false) {
             $toolbar.find('button').first().addClass('medium-editor-button-active');
+        }
+
+        this.repositionToolbars();
+        $toolbar.fadeIn();
+        $toolbar2.fadeIn();
+    };
+
+    Embeds.prototype.autoRepositionToolbars = function () {
+        setTimeout(function () {
+            this.repositionToolbars();
+            this.repositionToolbars();
+        }.bind(this), 0);
+    };
+
+    Embeds.prototype.repositionToolbars = function () {
+        var $toolbar = $('.medium-insert-embeds-toolbar'),
+            $toolbar2 = $('.medium-insert-embeds-toolbar2'),
+            $embed = this.$el.find('.medium-insert-embeds-selected'),
+            elementsContainer = this.core.getEditor().options.elementsContainer,
+            elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+            elementsContainerBoundary = elementsContainerAbsolute ? elementsContainer.getBoundingClientRect() : null,
+            containerWidth = $(window).width(),
+            position = {};
+
+        if ($toolbar2.length) {
+            position.top = $embed.offset().top + 2; // 2px - distance from a border
+            position.left = $embed.offset().left + $embed.width() - $toolbar2.width() - 4; // 4px - distance from a border
+
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop - elementsContainerBoundary.top;
+                position.left -= elementsContainerBoundary.left;
+                containerWidth = $(elementsContainer).width();
+            }
+
+            if (position.left + $toolbar2.width() > containerWidth) {
+                position.left = containerWidth - $toolbar2.width();
+            }
+
+            $toolbar2.css(position);
+        }
+
+        if ($toolbar.length) {
+            position.left = $embed.offset().left + $embed.width() / 2 - $toolbar.width() / 2;
+            position.top = $embed.offset().top - $toolbar.height() - 8 - 2 - 5; // 8px - hight of an arrow under toolbar, 2px - height of an embed outset, 5px - distance from an embed
+
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop - elementsContainerBoundary.top;
+                position.left -= elementsContainerBoundary.left;
+            }
+
+            if (position.top < 0) {
+                position.top = 0;
+            }
+
+            $toolbar.css(position);
         }
     };
 
@@ -1531,7 +1588,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             captionPlaceholder: 'Type caption for image (optional)',
             autoGrid: 3,
             fileUploadOptions: { // See https://github.com/blueimp/jQuery-File-Upload/wiki/Options
-                url: 'upload.php',
+                url: null,
                 acceptFileTypes: /(\.|\/)(gif|jpe?g|png)$/i
             },
             fileDeleteOptions: {},
@@ -1588,6 +1645,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
                 acceptFileTypesError: 'This file is not in a supported format: ',
                 maxFileSizeError: 'This file is too big: '
             }
+            // uploadError: function($el, data) {}
             // uploadCompleted: function ($el, data) {}
         };
 
@@ -1660,6 +1718,9 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
 
         this.$el
             .on('click', '.medium-insert-images img', $.proxy(this, 'selectImage'));
+
+        $(window)
+            .on('resize', $.proxy(this, 'autoRepositionToolbars'));
     };
 
     /**
@@ -1691,6 +1752,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             var $data = $('<div />').html(data[key].value);
 
             $data.find('.medium-insert-images').find('figcaption, figure').removeAttr('contenteditable');
+            $data.find('.medium-insert-images-progress').remove();
 
             data[key].value = $data.html();
         });
@@ -1760,7 +1822,14 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             uploadErrors.push(this.options.messages.maxFileSizeError + file.name);
         }
         if (uploadErrors.length > 0) {
+            if (this.options.uploadFailed && typeof this.options.uploadFailed === "function") {
+                this.options.uploadFailed(uploadErrors, data);
+
+                return;
+            }
+
             alert(uploadErrors.join("\n"));
+
             return;
         }
 
@@ -2113,7 +2182,7 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
             active = false,
             mediumEditor = this.core.getEditor(),
             toolbarContainer = mediumEditor.options.elementsContainer || 'body',
-            $toolbar, $toolbar2, top;
+            $toolbar, $toolbar2;
 
         $(toolbarContainer).append(this.templates['src/js/templates/images-toolbar.hbs']({
             styles: this.options.styles,
@@ -2122,25 +2191,6 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
 
         $toolbar = $('.medium-insert-images-toolbar');
         $toolbar2 = $('.medium-insert-images-toolbar2');
-
-        top = $image.offset().top - $toolbar.height() - 8 - 2 - 5; // 8px - hight of an arrow under toolbar, 2px - height of an image outset, 5px - distance from an image
-        if (top < 0) {
-            top = 0;
-        }
-
-        $toolbar
-            .css({
-                top: top,
-                left: $image.offset().left + $image.width() / 2 - $toolbar.width() / 2
-            })
-            .show();
-
-        $toolbar2
-            .css({
-                top: $image.offset().top + 2, // 2px - distance from a border
-                left: $image.offset().left + $image.width() - $toolbar2.width() - 4 // 4px - distance from a border
-            })
-            .show();
 
         $toolbar.find('button').each(function () {
             if ($p.hasClass('medium-insert-images-' + $(this).data('action'))) {
@@ -2151,6 +2201,66 @@ this["MediumInsert"]["Templates"]["src/js/templates/images-toolbar.hbs"] = Handl
 
         if (active === false) {
             $toolbar.find('button').first().addClass('medium-editor-button-active');
+        }
+
+        this.repositionToolbars();
+
+        $toolbar.fadeIn();
+        $toolbar2.fadeIn();
+    };
+
+    Images.prototype.autoRepositionToolbars = function () {
+        setTimeout(function () {
+            this.repositionToolbars();
+            this.repositionToolbars();
+        }.bind(this), 0);
+    };
+
+    Images.prototype.repositionToolbars = function () {
+        var $toolbar = $('.medium-insert-images-toolbar'),
+            $toolbar2 = $('.medium-insert-images-toolbar2'),
+            $image = this.$el.find('.medium-insert-image-active'),
+            elementsContainer = this.core.getEditor().options.elementsContainer,
+            elementsContainerAbsolute = ['absolute', 'fixed'].indexOf(window.getComputedStyle(elementsContainer).getPropertyValue('position')) > -1,
+            elementsContainerBoundary = elementsContainerAbsolute ? elementsContainer.getBoundingClientRect() : null,
+            containerWidth = $(window).width(),
+            position = {};
+
+        if ($toolbar2.length) {
+            position.top = $image.offset().top + 2;
+            position.left = $image.offset().left + $image.width() - $toolbar2.width() - 4; // 4px - distance from a border
+
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop - elementsContainerBoundary.top;
+                position.left -= elementsContainerBoundary.left;
+                containerWidth = $(elementsContainer).width();
+            }
+
+            if (position.left + $toolbar2.width() > containerWidth) {
+                position.left = containerWidth - $toolbar2.width();
+            }
+
+            $toolbar2.css(position);
+        }
+
+        if ($toolbar.length) {
+            if ($image.closest('.medium-insert-images-grid-active').length) {
+                $image = $image.closest('.medium-insert-images-grid-active');
+            }
+
+            position.top = $image.offset().top - $toolbar.height() - 8 - 2 - 5; // 8px - hight of an arrow under toolbar, 2px - height of an image outset, 5px - distance from an image
+            position.left = $image.offset().left + $image.width() / 2 - $toolbar.width() / 2;
+
+            if (elementsContainerAbsolute) {
+                position.top += elementsContainer.scrollTop - elementsContainerBoundary.top;
+                position.left -= elementsContainerBoundary.left;
+            }
+
+            if (position.top < 0) {
+                position.top = 0;
+            }
+
+            $toolbar.css(position);
         }
     };
 
